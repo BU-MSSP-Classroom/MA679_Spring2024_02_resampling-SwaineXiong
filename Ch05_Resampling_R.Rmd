@@ -64,14 +64,27 @@ ames_raw_2009=ames_raw[ames_raw$`Yr Sold`>=2008,]
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+model <- lm(log(SalePrice) ~ `Year Remod/Add` + `Year Built` + `Lot Area` + `Garage Area` + `Gr Liv Area` + `Year Remod/Add`:`Year Built`, data = ames_raw_2008)
+model_se <- summary(model)$coefficients[, "Std. Error"]
+set.seed(123)
+bootstrap_iteration <- function(data) {
+  sample_indices <- sample(1:nrow(data), size = nrow(data), replace = TRUE)
+  bootstrap_sample <- data[sample_indices, ]
+  bootstrap_model <- lm(log(SalePrice) ~ `Year Remod/Add` + `Year Built` + `Lot Area` + `Garage Area` + `Gr Liv Area` + `Year Remod/Add`:`Year Built`, data = bootstrap_sample)
+  return(coef(bootstrap_model))
+}
+bootstrap_results <- replicate(1000, bootstrap_iteration(ames_raw_2008))  # 1000 bootstrap samples
+bootstrap_se_estimates <- apply(bootstrap_results, 1, sd)
+comparison <- data.frame(Model_SE = model_se, Bootstrap_SE = bootstrap_se_estimates)
+
+print(comparison)
+
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
+The standard error of bootstrap estimates is higher than the original model.
 
 
 ~~~
@@ -82,14 +95,19 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+
+cv.error <- rep(0, 10)
+for (i in 1:10) {
+  glm.fit <- lm(log(SalePrice) ~ `Year Remod/Add` + `Year Built` + `Lot Area` + `Garage Area` + `Gr Liv Area` + `Year Remod/Add`:`Year Built`, data = ames_raw_2008)
+  cv.error[i] <- cv.glm(ames_raw_2008, glm.fit)$delta[1]
+}
+cv.error
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
+Sorry I failed to solve this problem. I will ask TA next discussion.
 
 
 ~~~
@@ -100,14 +118,28 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+
+library(FNN)
+library(caret)
+selected <- ames_raw_2008[, c("Year Remod/Add", "Year Built", "Lot Area", "Garage Area", "Gr Liv Area", "SalePrice")]
+selected <- na.omit(selected)
+predictors <- selected[, c("Year Remod/Add", "Year Built", "Lot Area", "Garage Area", "Gr Liv Area")]
+outcome <- selected$SalePrice
+scaled_predictors <- scale(predictors)
+k_values <- data.frame(k = seq(1, 20))
+
+train_control <- trainControl(method = "cv", number = 10) 
+
+set.seed(123)
+knn_cv <- train(x = scaled_predictors, y = outcome, method = "knn",
+                tuneGrid = k_values, trControl = train_control)
+print(knn_cv)
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
+The final value used for the model was k = 10.
 
 
 ~~~
@@ -118,14 +150,18 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+summary(model)
+predictions <- predict(model, newdata = ames_raw_2008)
+actual_log_values <- log(ames_raw_2008$SalePrice)
+rmse <- sqrt(mean((predictions - actual_log_values)^2, na.rm = TRUE))
+print(rmse)
+
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
+Knn performs better on training data, linear regression prediction perform better in the future prediction.
 
 
 ~~~
@@ -152,14 +188,14 @@ Comment on the results obtained.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+p = 1-(99/100)^100
+p
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
+The result aligns closely with the theoretical probability of an observation being included in a bootstrap sample. The theoretical probability is 0.6339677.
 
 
 ~~~
@@ -180,18 +216,11 @@ In this data set, what is n and what is p? Write out the model
 used to generate the data in equation form.
 
 
-Your code:
-
-```{r,echo=TRUE}
-#
-#
-```
-
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
-
+n = 100, p = 2
+The equation : $$y = x - 2x^{2} + ϵ$$
 
 ~~~
 
@@ -202,14 +231,13 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+plot(x,y)
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
+The relation between x and y are not linear.
 
 
 ~~~
@@ -228,17 +256,39 @@ to create a single data set containing both $X$ and $Y$ .
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+data <- data.frame(X = x, Y = y)
+set.seed(1)
+
+compute_loocv_error <- function(formula, data) {
+  glm_fit <- glm(formula, data = data)
+
+  cv_result <- cv.glm(data, glm_fit, K = nrow(data))  
+  
+  return(cv_result$delta[1])  
+}
+
+# Model 1: Y = β0 + β1X + ε
+model_1_error <- compute_loocv_error(Y ~ X, data)
+
+# Model 2: Y = β0 + β1X + β2X^2 + ε
+data$X2 <- data$X^2  
+model_2_error <- compute_loocv_error(Y ~ X + X2, data)
+
+# Model 3: Y = β0 + β1X + β2X^2 + β3X^3 + ε
+data$X3 <- data$X^3  
+model_3_error <- compute_loocv_error(Y ~ X + X2 + X3, data)
+
+# Model 4: Y = β0 + β1X + β2X^2 + β3X^3 + β4X^4 + ε
+data$X4 <- data$X^4  
+model_4_error <- compute_loocv_error(Y ~ X + X2 + X3 + X4, data)
+
+print(model_1_error)
+print(model_2_error)
+print(model_3_error)
+print(model_4_error)
+
 ```
 
-Your answer:
-
-~~~
-Please write your answer in full sentences.
-
-
-~~~
 
 
 (d) Repeat (c) using another random seed, and report your results.
@@ -247,31 +297,43 @@ Are your results the same as what you got in (c)? Why?
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+
+# Set a new random seed for reproducibility
+set.seed(123)  
+
+x <- rnorm(100)
+y <- x - 2 * x^2 + rnorm(100)
+
+data_new <- data.frame(X = x, Y = y, X2 = x^2, X3 = x^3, X4 = x^4)
+
+model_1_error_new <- compute_loocv_error(Y ~ X, data_new)
+model_2_error_new <- compute_loocv_error(Y ~ X + X2, data_new)
+model_3_error_new <- compute_loocv_error(Y ~ X + X2 + X3, data_new)
+model_4_error_new <- compute_loocv_error(Y ~ X + X2 + X3 + X4, data_new)
+
+print(model_1_error_new)
+print(model_2_error_new)
+print(model_3_error_new)
+print(model_4_error_new)
+
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
+The randomness introduced by changing the seed affects the generated dataset and, consequently, the fitted models and their predictive performance as measured by LOOCV errors. 
 
 
 ~~~
 
 (e) Which of the models in (c) had the smallest LOOCV error? Is this what you expected? Explain your answer.
 
-Your code:
 
-```{r,echo=TRUE}
-#
-#
-```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
+The model with x^2. It is what we expected since our data is generated with x^2
 
 
 ~~~
@@ -283,14 +345,25 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+
+model_1 <- lm(y ~ x)
+
+model_2 <- lm(y ~ x + I(x^2))
+
+model_3 <- lm(y ~ x + I(x^2) + I(x^3))
+
+model_4 <- lm(y ~ x + I(x^2) + I(x^3) + I(x^4))
+ 
+summary(model_1)
+summary(model_2)
+summary(model_3)
+summary(model_4)
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
+Only coefficient for x and x^2 are significant. These results agree with the conclusions drawn based on the cross-validation result
 
 
 ~~~
@@ -307,17 +380,11 @@ In Chapter 4, we used logistic regression to predict the probability of default 
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+library(ISLR2)
+model <- glm(default ~ income + balance, data = Default, family = "binomial")
+summary(model)
 ```
 
-Your answer:
-
-~~~
-Please write your answer in full sentences.
-
-
-~~~
 
 
 (b) Using the validation set approach, estimate the test error of this model. In order to do this, you must perform the following steps:
@@ -327,34 +394,22 @@ i. Split the sample set into a training set and a validation set.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+set.seed(123)
+n <- nrow(Default)
+index <- sample(1:n, size = 0.7 * n)  
+training_set <- Default[index, ]
+validation_set <- Default[-index, ]
 ```
 
-Your answer:
-
-~~~
-Please write your answer in full sentences.
-
-
-~~~
 
 ii. Fit a multiple logistic regression model using only the training observations.
 
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+training_model <- glm(default ~ income + balance, data = training_set, family = "binomial")
+summary(training_model)
 ```
-
-Your answer:
-
-~~~
-Please write your answer in full sentences.
-
-
-~~~
 
 
 iii. Obtain a prediction of default status for each individual in the validation set by computing the posterior probability of default for that individual, and classifying the individual to the default category if the posterior probability is greater than 0.5.
@@ -363,17 +418,12 @@ iii. Obtain a prediction of default status for each individual in the validation
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+validation_probs <- predict(training_model, newdata = validation_set, type = "response")
+validation_predictions <- ifelse(validation_probs > 0.5, "Yes", "No")
+validation_results <- data.frame(Actual = validation_set$default, Predicted = validation_predictions)
+head(validation_results)
 ```
 
-Your answer:
-
-~~~
-Please write your answer in full sentences.
-
-
-~~~
 
 
 iv. Compute the validation set error, which is the fraction of the observations in the validation set that are misclassified.
@@ -381,17 +431,10 @@ iv. Compute the validation set error, which is the fraction of the observations 
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+validation_error <- mean(validation_results$Actual != validation_results$Predicted)
+cat("Validation Set Error:", validation_error, "\n")
 ```
 
-Your answer:
-
-~~~
-Please write your answer in full sentences.
-
-
-~~~
 
 
 (c) Repeat the process in (b) three times, using three different splits of the observations into a training set and a validation set. Comment on the results obtained.
@@ -400,14 +443,43 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+set.seed(123)
+n <- nrow(Default)
+index1 <- sample(1:n, size = 0.75 * n)  
+training_set1 <- Default[index1, ]
+validation_set1 <- Default[-index1, ]
+training_model1 <- glm(default ~ income + balance, data = training_set1, family = "binomial")
+validation_probs1 <- predict(training_model1, newdata = validation_set1, type = "response")
+validation_predictions1 <- ifelse(validation_probs1 > 0.5, "Yes", "No")
+validation_results1 <- data.frame(Actual = validation_set1$default, Predicted = validation_predictions1)
+validation_error1 <- mean(validation_results1$Actual != validation_results1$Predicted)
+cat("Validation Set Error 1:", validation_error1, "\n")
+
+index2 <- sample(1:n, size = 0.8 * n)  
+training_set2 <- Default[index2, ]
+validation_set2 <- Default[-index2, ]
+training_model2 <- glm(default ~ income + balance, data = training_set2, family = "binomial")
+validation_probs2 <- predict(training_model2, newdata = validation_set2, type = "response")
+validation_predictions2 <- ifelse(validation_probs2 > 0.5, "Yes", "No")
+validation_results2 <- data.frame(Actual = validation_set2$default, Predicted = validation_predictions2)
+validation_error2 <- mean(validation_results2$Actual != validation_results2$Predicted)
+cat("Validation Set Error 2:", validation_error2, "\n")
+
+index3 <- sample(1:n, size = 0.85 * n)  
+training_set3 <- Default[index3, ]
+validation_set3 <- Default[-index3, ]
+training_model3 <- glm(default ~ income + balance, data = training_set3, family = "binomial")
+validation_probs3 <- predict(training_model3, newdata = validation_set3, type = "response")
+validation_predictions3 <- ifelse(validation_probs3 > 0.5, "Yes", "No")
+validation_results3 <- data.frame(Actual = validation_set3$default, Predicted = validation_predictions3)
+validation_error3 <- mean(validation_results3$Actual != validation_results3$Predicted)
+cat("Validation Set Error 3:", validation_error3, "\n")
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
+The more the training will not result in a lower error in validation set.
 
 
 ~~~
@@ -419,14 +491,21 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+set.seed(123)
+index3 <- sample(1:n, size = 0.7 * n)  
+training_set3 <- Default[index3, ]
+validation_set3 <- Default[-index3, ]
+training_model_with_student <- glm(default ~ income + balance + student, data = training_set, family = "binomial")
+validation_probs_with_student <- predict(training_model_with_student, newdata = validation_set, type = "response")
+validation_predictions_with_student <- ifelse(validation_probs_with_student > 0.5, "Yes", "No")
+validation_errors_with_student <- mean(validation_predictions_with_student != validation_set$default)
+cat("Validation Set Errors (with student dummy variable):", validation_errors_with_student, "\n")
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
+It does not decrease the error.
 
 
 ~~~
@@ -441,14 +520,15 @@ We continue to consider the use of a logistic regression model to predict the pr
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+set.seed(123)
+logistic_model <- glm(default ~ income + balance, data = Default, family = "binomial")
+summary(logistic_model)
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
+The SE of coefficients are shown above.
 
 
 ~~~
@@ -459,17 +539,13 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+boot.fn <- function(data, indices) {
+  subset_data <- data[indices, ]
+  model <- glm(default ~ income + balance, data = subset_data, family = "binomial")
+  return(coef(model))
+}
 ```
 
-Your answer:
-
-~~~
-Please write your answer in full sentences.
-
-
-~~~
 
 (c) Use the boot() function together with your boot.fn() function to estimate the standard errors of the logistic regression coefficients for income and balance.
 
@@ -477,14 +553,15 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+set.seed(123)
+boot_results <- boot(data = Default, statistic = boot.fn, R = 1000)
+boot_results
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
+The std error are shown above.
 
 
 ~~~
@@ -495,7 +572,7 @@ Please write your answer in full sentences.
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
+The std error obtained using bootstrap is smaller than the errors using glm()
 
 
 ~~~
@@ -510,15 +587,14 @@ We will now consider the Boston housing data set, from the ISLR2 library.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+mu_hat <- mean(Boston$medv)
+cat("Estimated population mean of medv (mu_hat):", mu_hat, "\n")
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
-
+Estimated population mean of medv (mu_hat): 22.53281.
 
 ~~~
 
@@ -529,14 +605,16 @@ Hint: We can compute the standard error of the sample mean by dividing the sampl
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+s <- sd(Boston$medv)
+n <- length(Boston$medv)
+se_mu <- s / sqrt(n)
+cat("Estimated standard error of mu_hat:", se_mu, "\n")
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
+Estimated standard error of mu_hat: 0.4088611.
 
 
 ~~~
@@ -547,14 +625,24 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+set.seed(123)
+
+boot_fn <- function(data, indices) {
+  subset_data <- data[indices, ]
+  mean_subset <- mean(subset_data$medv)
+  
+  return(mean_subset)
+}
+bootstrap_results <- boot(data = Boston, statistic = boot_fn, R = 1000)
+bootstrap_se <- sd(bootstrap_results$t)
+cat("Bootstrap estimate of SE(mu_hat):", bootstrap_se, "\n")
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
+Bootstrap estimate of SE(mu_hat): 0.4045557.
+It's a little bit lower than the estimate without bootstrap.
 
 
 ~~~
@@ -565,15 +653,19 @@ Hint: You can approximate a 95% confidence interval using the formula $[\hat{\mu
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+lower_bound <- mu_hat - 2 * bootstrap_se
+upper_bound <- mu_hat + 2 * bootstrap_se
+cat("Bootstrap 95% Confidence Interval for mu_hat:", lower_bound, "-", upper_bound, "\n")
+t_test_results <- t.test(Boston$medv)
+confidence_interval_t_test <- t_test_results$conf.int
+cat("t.test 95% Confidence Interval for mu:", confidence_interval_t_test[1], "-", confidence_interval_t_test[2], "\n")
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
-
+Bootstrap 95% Confidence Interval for mu_hat: 21.72369 - 23.34192 
+t.test 95% Confidence Interval for mu: 21.72953 - 23.33608 
 
 ~~~
 
@@ -583,14 +675,14 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+mu_med_hat <- median(Boston$medv)
+cat("Estimated median value of medv (mu_med_hat):", mu_med_hat, "\n")
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
+Estimated median value of medv (mu_med_hat): 21.2 
 
 
 ~~~
@@ -601,15 +693,24 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+set.seed(123)
+
+boot_median_fn <- function(data, indices) {
+  subset_data <- data[indices, ]
+  median_subset <- median(subset_data$medv)
+  return(median_subset)
+}
+
+bootstrap_median_results <- boot(data = Boston, statistic = boot_median_fn, R = 1000)
+bootstrap_median_se <- sd(bootstrap_median_results$t)
+cat("Bootstrap estimate of SE(mu_med_hat):", bootstrap_median_se, "\n")
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
-
+Bootstrap estimate of SE(mu_med_hat): 0.3676453.
+A standard error of 0.368 suggests that if we were to collect new samples from the population and calculate the median for each sample, we would expect the estimates to vary around$\hat{\mu}_{med}$ by approximately 0.368 on average. The result is precise since the std error is not large.
 
 ~~~
 
@@ -620,14 +721,14 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+mu_01_hat <- quantile(Boston$medv, 0.1)
+cat("Estimated tenth percentile of medv (mu_01_hat):", mu_01_hat, "\n")
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
+Estimated tenth percentile of medv (mu_01_hat): 12.75.
 
 
 ~~~
@@ -638,15 +739,24 @@ Please write your answer in full sentences.
 Your code:
 
 ```{r,echo=TRUE}
-#
-#
+set.seed(123)
+
+boot_01_fn <- function(data, indices) {
+  subset_data <- data[indices, ]
+  quantile_subset <- quantile(subset_data$medv, 0.1)
+  return(quantile_subset)
+}
+
+bootstrap_01_results <- boot(data = Boston, statistic = boot_01_fn, R = 1000)
+bootstrap_01_se <- sd(bootstrap_01_results$t)
+cat("Bootstrap estimate of SE(mu_01_hat):", bootstrap_01_se, "\n")
 ```
 
 Your answer:
 
 ~~~
-Please write your answer in full sentences.
-
+Bootstrap estimate of SE(mu_01_hat): 0.527868. 
+A standard error of 0.528 suggests that if we were to collect new samples from the population and calculate the tenth percentile for each sample, we would expect the estimates to vary around $\hat{\mu}_{0.1}$ by approximately 0.528 on average. The result is precise since the std error is not large.
 
 ~~~
 
